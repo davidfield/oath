@@ -7,3 +7,6 @@ prov=provider_2,vid=video222
 prov=provider_3,vid=video3
 prov=provider_3,vid=video33
 prov=provider_3,vid=video333
+prov=provider_3,vid=video666
+prov=provider_8,vid=video888
+prov=provider_8,vid=video8888
