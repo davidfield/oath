@@ -21,11 +21,8 @@ object Analytics {
   val videoDataFileWatchTimeKeyLength = "time".length+1
   
   case class MinuteVideo(min: Integer, video: String)
-  
   case class MinuteProvider(min: Integer, provider: String)
-  
   case class MinuteProviderDevice(min: Integer, provider: String, device:String)
-
   
   def instance = this
 
