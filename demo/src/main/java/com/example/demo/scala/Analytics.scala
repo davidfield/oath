@@ -1,12 +1,24 @@
 package com.example.demo.scala
 
 import org.apache.spark.SparkContext
+
 import org.apache.spark.SparkConf
 import org.apache.spark.rdd._
 import java.io._
 
-object Analytics {
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
+
+object Analytics {
+  
+  case class MinuteVideo(min: Integer, video: String)
+  
+  case class MinuteProvider(min: Integer, provider: String)
+  
+  case class MinuteProviderDevice(min: Integer, provider: String, device:String)
+
+  
   def instance = this
 
   val conf = new SparkConf().setAppName("video").setMaster("local[*]")
@@ -15,41 +27,54 @@ object Analytics {
 
   // Provider file as RDD
   val videoProvidersRdd = getVideoProviders(sc)
-  videoProvidersRdd.foreach(println)
+  val videoProvidersMap = sc.broadcast(getVideoProviderMap(videoProvidersRdd.collect()))
+  
 
   // VideoData files as one single RDD
   val mergedVideoDataRdd = getMergedFiles().cache()
 
   // RDD containing the watch time for videos
   val watchTimeRdd = mergedVideoDataRdd.map(i => (
-    MinVideo(Integer.valueOf(i.split(",")(0).substring(4)), i.split(",")(1).substring(9)), // KEY (minute, video)
-    Integer.valueOf(i.split(",")(4).substring(5)))) // VALUE (time)
+    MinuteVideo(Integer.valueOf(i.split(",")(0).substring(4)), i.split(",")(1).substring(9)), // KEY (minute, video)
+    Integer.valueOf(i.split(",")(4).substring(5)))).cache() // VALUE (time)
+    
+   // RDD containing the watch time for (minute, provider, device)
+  val minuteProviderDeviceRdd = mergedVideoDataRdd.map(i => {
+    val providerForVideo = videoProvidersMap.value.get(i.split(",")(1).substring(9)).getOrElse("")
+    (MinuteProviderDevice(Integer.valueOf(i.split(",")(0).substring(4)), providerForVideo, i.split(",")(3).substring(10)), // KEY (minute, provider, device)
+    Integer.valueOf(i.split(",")(4).substring(5))) // VALUE (time) 
+    }).cache()
 
-  case class MinVideo(min: Integer, video: String)
-  
-  case class MinProvider(min: Integer, provider: String)
 
   def getMaxVideoForMinute(min: Integer): String = {
     watchTimeRdd
-      .filter { case (MinVideo(minute, video), _) => minute == min } // Filter for the minute we want
-      .map(i => ((i._1).video, i._2)).reduceByKey(_ + _). // add up watch times for each video
-      reduce((acc, value) => { if (acc._2 < value._2) value else acc }) // Get Max Value
+      .filter { case (MinuteVideo(minute, video), _) => minute == min } // Filter for the minute we want
+      .map(i => ((i._1).video, i._2))
+      .reduceByKey(_ + _) // add up watch times for each video
+      .reduce((acc, value) => { if (acc._2 < value._2) value else acc }) // Get Max Value
       ._1 // return the video
   }
 
   def getMaxProviderForMinute(min: Integer): String = {
-//    val provider = videoProvidersRdd.lookup(video).headOption.get
     watchTimeRdd
-      .filter { case (MinVideo(minute, video), _) => minute == min } // Filter for the minute we want
-    .map{ case (MinVideo(minute, video), watchtime) => 
-      val provider = getProviderForVideo(video)
-      (MinProvider(minute, provider.getOrElse("")), watchtime) 
+      .filter { case (MinuteVideo(minute, video), _) => minute == min } // Filter for the minute we want
+      .map{ case (MinuteVideo(minute, video), watchtime) => 
+        val provider = getProviderForVideo(video)
+        (MinuteProvider(minute, provider.getOrElse("")), watchtime) 
       }
-      .map(i => ((i._1).provider, i._2)).reduceByKey(_ + _). // add up watch times for each video
+      .map(i => ((i._1).provider, i._2)).reduceByKey(_ + _). // add up watch times 
       reduce((acc, value) => { if (acc._2 < value._2) value else acc }) // Get Max Value
-      ._1 // return the video
+      ._1 // return the provider
   }
 
+  
+  def getTotalWatchTimeForMinuteProviderDevice(min: Integer, prov:String, dev:String):Integer = {
+    minuteProviderDeviceRdd
+    .filter { case (MinuteProviderDevice(minute, provider, device), _) => minute == min && provider == prov && device==dev} 
+    .reduceByKey(_ + _) // add up watch times 
+    .reduce((x, y) => { if (x._2 < y._2) y else x })._2
+  }
+    
   def getVideoProviders(sc: SparkContext): RDD[(String, String)] = {
     val providerVideosRdd = sc.textFile("src/main/resources/providers.txt")
     providerVideosRdd.map { l =>
@@ -89,29 +114,13 @@ object Analytics {
   }
 
   def getProviderForVideo(video: String): Option[String] = {
-//    videoProvidersRdd.lookup(video).headOption
-    val filteredRdd = videoProvidersRdd.filter{ case(v,p) => v==video}
-    filteredRdd.count() match {
-      case 1 => Some(filteredRdd.values.first)
-      case 0 => None
-      case x if (x>1) => None
-    }
+    videoProvidersRdd.lookup(video).headOption
+  }
+  
+  def getVideoProviderMap(videoProvidersArray:Array[(String, String)]):Map[String, String] = {
+    videoProvidersArray.toMap
   }
 
-  //def getCumWatchTimeRdd() {
-  //mergedWatchStatisticsRdd.map(line => line.split(“,”))
-  //.map( case(m, v, u,d,w) => (m, getProviderForVideo(v,) w,d)
-  //.map { case (m, p, d) => ((m, p, d), w) }
-  //.reduceByKey(_ + _)
-  //}
-  //
-  //def getCumulativeWatchTime(min:Integer, provider:String, device:String) {
-  //      cumWatchTimeRdd = mergedWatchStatisticsRdd.filter(( case( `min`, `provider`, `device`, w))
-  //     cumWatchTimeRdd.count() match {
-  //     case 1 => cumWatchTimeRdd.first().map((p,v) => Some(p))
-  //     case 0 => {
-  //        logger.error(s”Entry for min:$min, provider:$provider, device:$device,  not found”)
-  //        None
-  // }
+
 
 }
