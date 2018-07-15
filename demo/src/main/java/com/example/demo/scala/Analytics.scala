@@ -12,6 +12,14 @@ import org.springframework.stereotype.Service;
 
 object Analytics {
   
+  val providersPathAndFile = "src/main/resources/providers.txt"
+  val pathForVideoDataFiles = """src/main/resources"""
+  
+  val videoDataFileMinuteKeyLength = "min".length+1
+  val videoDataFileVideoKeyLength = "video_id".length+1
+  val videoDataFileDeviceIdKeyLength = "device_id".length+1
+  val videoDataFileWatchTimeKeyLength = "time".length+1
+  
   case class MinuteVideo(min: Integer, video: String)
   
   case class MinuteProvider(min: Integer, provider: String)
@@ -40,9 +48,10 @@ object Analytics {
     
    // RDD containing the watch time for (minute, provider, device)
   val minuteProviderDeviceRdd = mergedVideoDataRdd.map(i => {
-    val providerForVideo = videoProvidersMap.value.get(i.split(",")(1).substring(9)).getOrElse("")
-    (MinuteProviderDevice(Integer.valueOf(i.split(",")(0).substring(4)), providerForVideo, i.split(",")(3).substring(10)), // KEY (minute, provider, device)
-    Integer.valueOf(i.split(",")(4).substring(5))) // VALUE (time) 
+    val providerForVideo = videoProvidersMap.value.get(i.split(",")(1).substring(videoDataFileVideoKeyLength)).getOrElse("")
+    (MinuteProviderDevice(Integer.valueOf(i.split(",")(0).substring(videoDataFileMinuteKeyLength)), providerForVideo, 
+        i.split(",")(3).substring(videoDataFileDeviceIdKeyLength)), // KEY (minute, provider, device)
+    Integer.valueOf(i.split(",")(4).substring(videoDataFileWatchTimeKeyLength))) // VALUE (time) 
     }).cache()
 
 
@@ -76,10 +85,13 @@ object Analytics {
   }
     
   def getVideoProviders(sc: SparkContext): RDD[(String, String)] = {
-    val providerVideosRdd = sc.textFile("src/main/resources/providers.txt")
+    val providersFileProviderKeyLength = "prov".length+1
+    val providersFileVideoKeyLength = "vid".length+1
+    
+    val providerVideosRdd = sc.textFile(providersPathAndFile)
     providerVideosRdd.map { l =>
-      val provider = (l.split(",")(0)).substring(5)
-      val video = ((l.split(",")(1)).substring(4))
+      val provider = (l.split(",")(0)).substring(providersFileProviderKeyLength)
+      val video = (l.split(",")(1)).substring(providersFileVideoKeyLength)
       (video, provider)
     }
   }
@@ -97,7 +109,7 @@ object Analytics {
     var rdd: RDD[String] = null;
     var first: Boolean = true
 
-    var files = getListOfFiles("""src/main/resources""")
+    var files = getListOfFiles(pathForVideoDataFiles)
     files.foreach(println)
 
     files = files.filter(f => f.getName().startsWith("videodata"))
@@ -109,7 +121,6 @@ object Analytics {
         rdd = rdd.union(sc.textFile(file.getAbsolutePath))
       }
     }
-    rdd.foreach(println)
     rdd
   }
 

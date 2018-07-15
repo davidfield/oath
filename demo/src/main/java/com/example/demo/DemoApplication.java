@@ -13,7 +13,7 @@ public class DemoApplication {
 		SpringApplication.run(DemoApplication.class, args);
 		Analytics$ myvar = Analytics$.MODULE$;
 		int minute = 8;
-		System.out.println("======== ANALTICS RESULTS ========");
+		System.out.println("\n\n======== ANALYTICS RESULTS ========");
 		String mostWatchedVideo = myvar.getMaxVideoForMinute(minute);
 		System.out.printf("Video watched most in minute %d: %s ", minute, mostWatchedVideo);
 		System.out.println();
@@ -23,7 +23,7 @@ public class DemoApplication {
 		System.out.println();
 		String provider = "provider_8";
 		String device = "d3";
-		System.out.printf("Total time watched for minute %d, provider %s, device %s: %d", minute, provider, device, 
+		System.out.printf("Total time watched for minute(%d), provider(%s), device(%s): %d\n", minute, provider, device, 
 				myvar.getTotalWatchTimeForMinuteProviderDevice(minute, provider, device));
 //		myvar.getTotalWatchTimeForMinuteProviderDevice(minute, provider, device);
 		System.out.println("==================================");
