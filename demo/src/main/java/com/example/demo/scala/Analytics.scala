@@ -132,6 +132,4 @@ object Analytics {
     videoProvidersArray.toMap
   }
 
-
-
 }
