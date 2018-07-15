@@ -25,7 +25,6 @@ public class DemoApplication {
 		String device = "d3";
 		System.out.printf("Total time watched for minute(%d), provider(%s), device(%s): %d\n", minute, provider, device, 
 				myvar.getTotalWatchTimeForMinuteProviderDevice(minute, provider, device));
-//		myvar.getTotalWatchTimeForMinuteProviderDevice(minute, provider, device);
 		System.out.println("==================================");
 	}
 	 
